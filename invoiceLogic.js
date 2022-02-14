@@ -86,7 +86,7 @@ const calculateAmountAndTax = (settingTaxType, invoiceLineItem, settingTaxRate, 
   }
 }
 
-const getPaymentsSubTotal = exports.getPaymentsSubTotal = (invoiceItems, taxRate, settingTaxType, isDiscountPercentage, discountPercentage, isCreditInvoice) => {
+const getInvoiceSubTotal = exports.getInvoiceSubTotal = (invoiceItems, taxRate, settingTaxType, isDiscountPercentage, discountPercentage, isCreditInvoice) => {
   let discountAmount = 0;
   let subTotal = 0;
   let amountTotal = 0;
@@ -135,9 +135,9 @@ exports.ageAnalysis = (clientBalance, invoice) => {
       hundredAndTwentyDays: 0,
       hundredAndFiftyDaysAndAfter: 0,
   };
-  const paymentsSubTotal = getPaymentsSubTotal(invoice.items, invoice.settingTaxRate, invoice.settingTaxType, invoice.isDiscountPercentage, invoice.discountPercentage, invoice.isCreditInvoice);
+  const invoiceSubTotal = getInvoiceSubTotal(invoice.items, invoice.settingTaxRate, invoice.settingTaxType, invoice.isDiscountPercentage, invoice.discountPercentage, invoice.isCreditInvoice);
   const paymentsTotal = getPaymentsTotal(invoice.payments);
-  const invoiceTotal = getInvoiceTotal(paymentsSubTotal, invoice.settingTaxRate);
+  const invoiceTotal = getInvoiceTotal(invoiceSubTotal, invoice.settingTaxRate);
   const balance = new BigNumber(invoiceTotal).minus(new BigNumber(paymentsTotal));
   ageAnalysis.balance = new BigNumber(clientBalance).plus(balance).toNumber();
   if (balance.toNumber() !== 0) {
