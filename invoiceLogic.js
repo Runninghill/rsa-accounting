@@ -30,26 +30,6 @@ const invoiceDueDate = exports.invoiceDueDate = (invoice) => {
   return dueDate;
 };
 
-exports.generateNextSequence = (originalString) => {
-  const detectedNumbers = originalString.match(/\d+/);
-  if (!detectedNumbers) {
-    return null;
-  }
-  const detectedNumber = detectedNumbers[0];
-  const currentNumber = Number(detectedNumber);
-  if (!isNaN(currentNumber)) {
-    const incrementedNumber = currentNumber + 1;
-    const originalStringArray = originalString.split('');
-    const incrementedArray = incrementedNumber.toString().split('');
-    for (let i = 0; i < incrementedArray.length; i++) {
-      originalStringArray[originalStringArray.length - 1 - i] = incrementedArray[i];
-    }
-    return originalStringArray.join('');
-  } else {
-    return null;
-  }
-};
-
 const calculateAmountAndTax = (settingTaxType, invoiceLineItem, settingTaxRate, isCreditInvoice) => {
   let taxTotal = new BigNumber(0);
   let amountTotal = new BigNumber(0);
@@ -86,19 +66,21 @@ const calculateAmountAndTax = (settingTaxType, invoiceLineItem, settingTaxRate, 
   }
 }
 
-const getInvoiceSubTotal = exports.getInvoiceSubTotal = (invoiceItems, taxRate, settingTaxType, isDiscountPercentage, discountPercentage, isCreditInvoice) => {
+const getInvoiceSubTotalAndDiscount = exports.getInvoiceSubTotalAndDiscount = (invoiceItems, taxRate, settingTaxType, isDiscountPercentage, discountPercentage, isCreditInvoice) => {
   let discountAmount = 0;
   let subTotal = 0;
   let amountTotal = 0;
+  let amountOnlyTotal = 0;
   let taxTotal = 0;
   for (let invoiceItem of invoiceItems) {
     const amountAndTax = calculateAmountAndTax(settingTaxType, invoiceItem, taxRate, isCreditInvoice);
     amountTotal = new BigNumber(amountTotal).plus(amountAndTax.amountTotal).minus(amountAndTax.tax).toNumber();
+    amountOnlyTotal = new BigNumber(amountOnlyTotal).plus(amountAndTax.amountTotal).toNumber();
     taxTotal = new BigNumber(amountTotal).plus(amountAndTax.tax).toNumber();
   }
 
   if (isDiscountPercentage) {
-    discountAmount = new BigNumber(settingTaxType === SettingTaxType.exclusive ? amountTotal : taxTotal).multipliedBy(discountPercentage).dividedBy(100).toNumber();
+    discountAmount = new BigNumber(settingTaxType === SettingTaxType.exclusive ? amountTotal : amountOnlyTotal).multipliedBy(discountPercentage).dividedBy(100).toNumber();
   }
 
   if (settingTaxType === SettingTaxType.exclusive){
@@ -107,14 +89,26 @@ const getInvoiceSubTotal = exports.getInvoiceSubTotal = (invoiceItems, taxRate, 
     const taxPercentage = new BigNumber(1).plus(new BigNumber(taxRate).dividedBy(100));
     subTotal = (new BigNumber(taxTotal).minus(discountAmount)).dividedBy(taxPercentage).toNumber();
   }
-  return subTotal;
+  return {subTotal,discountAmount};
 }
 
 const getInvoiceTotal = exports.getInvoiceTotal = (subTotal, taxRate) => {
   const taxPercentage = new BigNumber(1).plus(new BigNumber(taxRate).dividedBy(100));
-  return new BigNumber(subTotal).multipliedBy(taxPercentage).toNumber();
+  const invoiceTotal = new BigNumber(subTotal).multipliedBy(taxPercentage).toNumber();
+  return {
+    invoiceTotal,
+    taxAmount:new BigNumber(invoiceTotal).minus(subTotal).toNumber()
+  };
 }
 
+exports.checkIfInvoiceOverdue = (invoice, paymentsTotal) => {
+  // TODO MVW think about using the users current timezone to calculate todays date
+  const todaysDate = moment();
+  const dueDate = invoiceDueDate(invoice);
+  const invoiceTotal = getInvoiceTotal(invoice, invoice.items);
+  const isPartiallyPaid = paymentsTotal < invoiceTotal;
+  return todaysDate.isAfter(dueDate, 'days') && isPartiallyPaid;
+};
 
 const getPaymentsTotal = exports.getInvoicePaymentsTotal = (payments) => {
   const paymentsBigNumber = payments.reduce(
@@ -135,9 +129,10 @@ exports.ageAnalysis = (clientBalance, invoice) => {
       hundredAndTwentyDays: 0,
       hundredAndFiftyDaysAndAfter: 0,
   };
-  const invoiceSubTotal = getInvoiceSubTotal(invoice.items, invoice.settingTaxRate, invoice.settingTaxType, invoice.isDiscountPercentage, invoice.discountPercentage, invoice.isCreditInvoice);
+  const subTotalAndDiscount = getInvoiceSubTotalAndDiscount(invoice.items, invoice.settingTaxRate, invoice.settingTaxType, invoice.isDiscountPercentage, invoice.discountPercentage, invoice.isCreditInvoice);
+  const invoiceSubTotal = subTotalAndDiscount.subTotal;
   const paymentsTotal = getPaymentsTotal(invoice.payments);
-  const invoiceTotal = getInvoiceTotal(invoiceSubTotal, invoice.settingTaxRate);
+  const invoiceTotal = getInvoiceTotal(invoiceSubTotal, invoice.settingTaxRate).invoiceTotal;
   const balance = new BigNumber(invoiceTotal).minus(new BigNumber(paymentsTotal));
   ageAnalysis.balance = new BigNumber(clientBalance).plus(balance).toNumber();
   if (balance.toNumber() !== 0) {
@@ -164,18 +159,4 @@ exports.ageAnalysis = (clientBalance, invoice) => {
   }
 
   return ageAnalysis;
-};
-
-exports.newClientOutstandingDays = (invoice) => {
-  return {
-    clientAccountNumber: invoice.clientAccountNumber,
-    clientName: invoice.clientName,
-    balance: 0,
-    current: 0,
-    thirtyDays: 0,
-    sixtyDays: 0,
-    ninetyDays: 0,
-    hundredAndTwentyDays: 0,
-    hundredAndFiftyDaysAndAfter: 0,
-  };
 };
