@@ -87,7 +87,7 @@ const getInvoiceSubTotalAndDiscount = exports.getInvoiceSubTotalAndDiscount = (i
     subTotal = new BigNumber(amountTotal).minus(discountAmount).toNumber();
   }else{
     const taxPercentage = new BigNumber(1).plus(new BigNumber(taxRate).dividedBy(100));
-    subTotal = (new BigNumber(taxTotal).minus(discountAmount)).dividedBy(taxPercentage).toNumber();
+    subTotal = (new BigNumber(amountOnlyTotal).minus(discountAmount)).dividedBy(taxPercentage).toNumber();
   }
   return {subTotal,discountAmount};
 }
