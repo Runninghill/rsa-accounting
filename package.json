@@ -1,6 +1,6 @@
 {
   "name": "@runninghill/rsa-accounting",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "South african specific accounting related functions",
   "main": "index.js",
   "scripts": {

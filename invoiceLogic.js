@@ -76,28 +76,23 @@ const getInvoiceSubTotalAndDiscount = exports.getInvoiceSubTotalAndDiscount = (i
     const amountAndTax = calculateAmountAndTax(settingTaxType, invoiceItem, taxRate, isCreditInvoice);
     amountTotal = new BigNumber(amountTotal).plus(amountAndTax.amountTotal).minus(amountAndTax.tax).toNumber();
     amountOnlyTotal = new BigNumber(amountOnlyTotal).plus(amountAndTax.amountTotal).toNumber();
-    taxTotal = new BigNumber(amountTotal).plus(amountAndTax.tax).toNumber();
+    taxTotal = new BigNumber(taxTotal).plus(amountAndTax.tax).toNumber();
   }
 
   if (isDiscountPercentage) {
     discountAmount = new BigNumber(settingTaxType === SettingTaxType.exclusive ? amountTotal : amountOnlyTotal).multipliedBy(discountPercentage).dividedBy(100).toNumber();
   }
 
-  if (settingTaxType === SettingTaxType.exclusive){
-    subTotal = new BigNumber(amountTotal).minus(discountAmount).toNumber();
-  }else{
-    const taxPercentage = new BigNumber(1).plus(new BigNumber(taxRate).dividedBy(100));
-    subTotal = (new BigNumber(amountOnlyTotal).minus(discountAmount)).dividedBy(taxPercentage).toNumber();
-  }
-  return {subTotal,discountAmount};
+  subTotal = new BigNumber(amountTotal).minus(discountAmount).toNumber();
+
+  return {subTotal,discountAmount,taxTotal};
 }
 
-const getInvoiceTotal = exports.getInvoiceTotal = (subTotal, taxRate) => {
-  const taxPercentage = new BigNumber(1).plus(new BigNumber(taxRate).dividedBy(100));
-  const invoiceTotal = new BigNumber(subTotal).multipliedBy(taxPercentage).toNumber();
+const getInvoiceTotal = exports.getInvoiceTotal = (subTotal, taxTotal) => {
+  const invoiceTotal = new BigNumber(subTotal).plus(taxTotal).toNumber();
   return {
     invoiceTotal,
-    taxAmount:new BigNumber(invoiceTotal).minus(subTotal).toNumber()
+    taxAmount:taxTotal
   };
 }
 
@@ -105,7 +100,8 @@ exports.checkIfInvoiceOverdue = (invoice, paymentsTotal) => {
   // TODO MVW think about using the users current timezone to calculate todays date
   const todaysDate = moment();
   const dueDate = invoiceDueDate(invoice);
-  const invoiceTotal = getInvoiceTotal(invoice, invoice.items);
+  const subTotalAndDiscount = getInvoiceSubTotalAndDiscount(invoice.items, invoice.settingTaxRate, invoice.settingTaxType, invoice.isDiscountPercentage, invoice.discountPercentage, invoice.isCreditInvoice);
+  const invoiceTotal = getInvoiceTotal(invoice, subTotalAndDiscount.taxTotal).invoiceTotal;
   const isPartiallyPaid = paymentsTotal < invoiceTotal;
   return todaysDate.isAfter(dueDate, 'days') && isPartiallyPaid;
 };
@@ -132,7 +128,7 @@ exports.ageAnalysis = (clientBalance, invoice) => {
   const subTotalAndDiscount = getInvoiceSubTotalAndDiscount(invoice.items, invoice.settingTaxRate, invoice.settingTaxType, invoice.isDiscountPercentage, invoice.discountPercentage, invoice.isCreditInvoice);
   const invoiceSubTotal = subTotalAndDiscount.subTotal;
   const paymentsTotal = getPaymentsTotal(invoice.payments);
-  const invoiceTotal = getInvoiceTotal(invoiceSubTotal, invoice.settingTaxRate).invoiceTotal;
+  const invoiceTotal = getInvoiceTotal(invoiceSubTotal, subTotalAndDiscount.taxTotal).invoiceTotal;
   const balance = new BigNumber(invoiceTotal).minus(new BigNumber(paymentsTotal));
   ageAnalysis.balance = new BigNumber(clientBalance).plus(balance).toNumber();
   if (balance.toNumber() !== 0) {
