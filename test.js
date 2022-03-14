@@ -7,26 +7,26 @@ const result = invoiceLogic.calculateTotals([
         "id": 420,
         "reference": "",
         "description": "Doopddop",
-        "quantity": 1,
+        "quantity": 10,
         "unit": "Unit",
-        "rate": 200,
-        "hasTax": false,
+        "rate": 100,
+        "hasTax": true,
         "date": "",
         "detailedDescription": null,
         "amount": "230.00"
     },
-    // {
-    //     "id": 421,
-    //     "reference": "",
-    //     "description": "Doopddop",
-    //     "quantity": 10,
-    //     "unit": "Unit",
-    //     "rate": 1000,
-    //     "hasTax": true,
-    //     "date": "",
-    //     "detailedDescription": null,
-    //     "amount": "230.00"
-    // }
-],15,'exclusive',false,10,false,0);
+    {
+        "id": 421,
+        "reference": "",
+        "description": "Doopddop",
+        "quantity": 10,
+        "unit": "Unit",
+        "rate": 100,
+        "hasTax": true,
+        "date": "",
+        "detailedDescription": null,
+        "amount": "230.00"
+    }
+],15,'inclusive',10,false,0);
 console.log(result);
 // console.log(result2);

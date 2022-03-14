@@ -67,7 +67,7 @@ const inclusiveCalculation = (amountTotal, taxPercentage, hasTax) => {
         taxTotal
     }
 }
-const calculateLineItemAmounts = exports.calculateLineItemAmounts = (qty, rate, hasTax, settingTaxType, settingTaxRate, isCreditInvoice, discountPercentage,discountAmount) => {
+const calculateLineItemAmounts = exports.calculateLineItemAmounts = (qty, rate, hasTax, settingTaxType, settingTaxRate, isCreditInvoice, discountPercentage) => {
     let taxTotal = new BigNumber(0);
     let taxTotalDiscounted = new BigNumber(0);
     let amountIncludingTax = new BigNumber(0);
@@ -80,11 +80,7 @@ const calculateLineItemAmounts = exports.calculateLineItemAmounts = (qty, rate, 
 
     try {
         nonDiscountedAmountTotal = new BigNumber(rate).multipliedBy(qty);
-        if (discountPercentage){
-            discountedAmountTotal = nonDiscountedAmountTotal.minus(nonDiscountedAmountTotal.multipliedBy(discountPercentage).dividedBy(100));
-        }else{
-            discountedAmountTotal = nonDiscountedAmountTotal;
-        }
+        discountedAmountTotal = nonDiscountedAmountTotal.minus(nonDiscountedAmountTotal.multipliedBy(discountPercentage).dividedBy(100));
 
         if (settingTaxType === SettingTaxType.inclusive) {
             const taxPercentage = new BigNumber(1).plus(new BigNumber(settingTaxRate).dividedBy(100));
@@ -114,10 +110,6 @@ const calculateLineItemAmounts = exports.calculateLineItemAmounts = (qty, rate, 
 
             actualDiscount = amountExcludingTax.minus(amountExcludingTaxDiscounted)
         }
-
-        if (!discountPercentage){
-            actualDiscount = new BigNumber(discountAmount);
-        }
     } catch (err) {
         console.error(err);
     }
@@ -133,24 +125,26 @@ const calculateLineItemAmounts = exports.calculateLineItemAmounts = (qty, rate, 
     }
 }
 
-const calculateTotals = exports.calculateTotals = (invoiceItems, taxRate, settingTaxType, isDiscountPercentage, discountPercentage, isCreditInvoice,discountAmount) => {
+const discountPercentageFromAmount = exports.discountPercentageFromAmount = (invoiceItems,discountAmount) => {
+    const taxInclusiveTotal = invoiceItems.reduce((previousValue,currentValue)=>
+                previousValue.plus(new BigNumber(currentValue.quantity).multipliedBy(new BigNumber(currentValue.rate))),
+            new BigNumber(0))
+    return new BigNumber(100).dividedBy(taxInclusiveTotal.dividedBy(discountAmount)).toNumber();
+}
+
+const calculateTotals = exports.calculateTotals = (invoiceItems, taxRate, settingTaxType, discountPercentage, isCreditInvoice,discountAmount) => {
     let actualDiscountAmount = new BigNumber(0);
     let taxTotal =  new BigNumber(0);
     let subTotalAmount =  new BigNumber(0);
+    if (discountAmount){
+        discountPercentage = discountPercentageFromAmount(invoiceItems,discountAmount);
+    }
     for (let invoiceItem of invoiceItems) {
-        const {amountExcludingTax,amountIncludingTax,tax,amountIncludingTaxDiscounted,amountExcludingTaxDiscounted,taxDiscounted,actualDiscount} = calculateLineItemAmounts(invoiceItem.quantity,invoiceItem.rate,invoiceItem.hasTax,settingTaxType,taxRate,isCreditInvoice,isDiscountPercentage ? discountPercentage : null,discountAmount);
+        const {amountExcludingTaxDiscounted,taxDiscounted,actualDiscount} = calculateLineItemAmounts(invoiceItem.quantity,invoiceItem.rate,invoiceItem.hasTax,settingTaxType,taxRate,isCreditInvoice, discountPercentage);
         subTotalAmount = subTotalAmount.plus(amountExcludingTaxDiscounted);
         taxTotal = new BigNumber(taxTotal).plus(taxDiscounted);
-        if (isDiscountPercentage){
-            actualDiscountAmount = new BigNumber(actualDiscountAmount).plus(actualDiscount);
-        }
+        actualDiscountAmount = new BigNumber(actualDiscountAmount).plus(actualDiscount);
     }
-
-    if (!isDiscountPercentage){
-        actualDiscountAmount = new BigNumber(discountAmount);
-        subTotalAmount = subTotalAmount.minus(actualDiscountAmount);
-    }
-
     let subTotal = subTotalAmount.toNumber();
     const taxAmount = taxTotal.toNumber();
     const total = new BigNumber(subTotal).plus(taxAmount).toNumber();
@@ -167,7 +161,7 @@ exports.checkIfInvoiceOverdue = (invoice, paymentsTotal) => {
     // TODO MVW think about using the users current timezone to calculate todays date
     const todaysDate = moment();
     const dueDate = invoiceDueDate(invoice);
-    const totals = calculateTotals(invoice.items, invoice.settingTaxRate, invoice.settingTaxType, invoice.isDiscountPercentage, invoice.discountPercentage, invoice.isCreditInvoice, invoice.discountAmount);
+    const totals = calculateTotals(invoice.items, invoice.settingTaxRate, invoice.settingTaxType, invoice.discountPercentage, invoice.isCreditInvoice, invoice.discountAmount);
     const invoiceTotal = totals.total;
     const isPartiallyPaid = paymentsTotal < invoiceTotal;
     return todaysDate.isAfter(dueDate, 'days') && isPartiallyPaid;
@@ -193,7 +187,7 @@ exports.ageAnalysis = (clientBalance, invoice) => {
         hundredAndFiftyDaysAndAfter: 0,
     };
 
-    const totals = calculateTotals(invoice.items, invoice.settingTaxRate, invoice.settingTaxType, invoice.isDiscountPercentage, invoice.discountPercentage, invoice.isCreditInvoice, invoice.discountAmount);
+    const totals = calculateTotals(invoice.items, invoice.settingTaxRate, invoice.settingTaxType, invoice.discountPercentage, invoice.isCreditInvoice, invoice.discountAmount);
     const paymentsTotal = getPaymentsTotal(invoice.payments);
     const invoiceTotal = totals.total;
     const balance = new BigNumber(invoiceTotal).minus(new BigNumber(paymentsTotal));
