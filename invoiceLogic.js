@@ -139,6 +139,9 @@ const calculateTotals = exports.calculateTotals = (invoiceItems, taxRate, settin
     if (discountAmount){
         discountPercentage = discountPercentageFromAmount(invoiceItems,discountAmount);
     }
+    if (!discountAmount){
+        discountPercentage = 0;
+    }
     for (let invoiceItem of invoiceItems) {
         const {amountExcludingTaxDiscounted,taxDiscounted,actualDiscount} = calculateLineItemAmounts(invoiceItem.quantity,invoiceItem.rate,invoiceItem.hasTax,settingTaxType,taxRate, discountPercentage);
         subTotalAmount = subTotalAmount.plus(amountExcludingTaxDiscounted);
