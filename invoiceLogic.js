@@ -139,7 +139,7 @@ const calculateTotals = exports.calculateTotals = (invoiceItems, taxRate, settin
     if (discountAmount){
         discountPercentage = discountPercentageFromAmount(invoiceItems,discountAmount);
     }
-    if (!discountAmount){
+    if (!discountAmount && !discountPercentage){
         discountPercentage = 0;
     }
     for (let invoiceItem of invoiceItems) {
