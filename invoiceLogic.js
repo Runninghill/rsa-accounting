@@ -197,7 +197,9 @@ exports.ageAnalysis = (transactions) => {
         const balance = new BigNumber(transactionTotal).minus(new BigNumber(paymentsTotal));
         ageAnalysis.balance = new BigNumber(ageAnalysis.balance).plus(balance).toNumber();
         if (balance.toNumber() !== 0) {
-            const dueDate = invoiceDueDate(transaction);
+            const documentDate = moment(transaction.issuedDateEpoch * 1000);
+            //TODO dont use invoiceDueDate calc, use documentDate as is
+            const dueDate = documentDate;
             const todaysDate = moment();
             const thirtyDaysFromDueDate = dueDate.clone().add(30, 'days');
             const sixtyDaysFromDueDate = dueDate.clone().add(60, 'days');
